@@ -7,6 +7,8 @@
 //! - `Arc<T>` atomic reference counting enables cross-thread sharing
 //! - `lock()` acquires the lock and accesses data
 
+use std::ops::{Add, AddAssign};
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -16,11 +18,27 @@ use std::thread;
 ///
 /// Hint: Use `Arc<Mutex<usize>>` as the shared counter.
 pub fn concurrent_counter(n_threads: usize, count_per_thread: usize) -> usize {
-    // TODO: Create Arc<Mutex<usize>> with initial value 0
-    // TODO: Spawn n_threads threads
-    // TODO: In each thread, lock() and increment count_per_thread times
-    // TODO: Join all threads, return final value
-    todo!()
+    // Create Arc<Mutex<usize>> with initial value 0
+    let count = Arc::new(Mutex::new(0));
+    // Spawn n_threads threads
+    let mut handles = vec![];
+    for _ in 0..n_threads {
+        let temp = Arc::clone(&count);
+        handles.push(thread::spawn(move || {
+            let mut new_count = temp.lock().unwrap();
+            // TODO: In each thread, lock() and increment count_per_thread times
+            for _ in 0..count_per_thread {
+                *new_count += 1;
+            }
+        }));
+    }
+    // Join all threads, return final value
+    handles.into_iter().for_each(|h| h.join().unwrap());
+    // for h in handles {
+    //     h.join().unwrap();
+    // }
+    let result = *count.lock().unwrap();
+    result
 }
 
 /// Add elements to a shared vector concurrently using multiple threads.
@@ -29,10 +47,22 @@ pub fn concurrent_counter(n_threads: usize, count_per_thread: usize) -> usize {
 ///
 /// Hint: Use `Arc<Mutex<Vec<usize>>>`.
 pub fn concurrent_collect(n_threads: usize) -> Vec<usize> {
-    // TODO: Create Arc<Mutex<Vec<usize>>>
-    // TODO: Each thread pushes its own id
-    // TODO: After joining all threads, sort the result and return
-    todo!()
+    // Create Arc<Mutex<Vec<usize>>>
+    let sp =  Arc::new(Mutex::new(vec![]));
+    let mut handles = Vec::with_capacity(n_threads);
+    // Each thread pushes its own id
+    for i in 0..n_threads {
+        let sp = Arc::clone(&sp);
+        handles.push(thread::spawn( move || {
+            let mut temp = sp.lock().unwrap();
+            temp.push(i);
+        }))
+    }
+    // After joining all threads, sort the result and return
+    handles.into_iter().for_each(|h| h.join().unwrap());
+    let mut result = sp.lock().unwrap().clone();
+    result.sort();
+    result
 }
 
 #[cfg(test)]
