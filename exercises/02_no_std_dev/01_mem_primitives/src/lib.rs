@@ -16,7 +16,7 @@
 #![cfg_attr(not(test), no_std)]
 #![allow(unused_variables)]
 
-/// Copy `n` bytes from `src` to `dst`.
+/// Copy `n` bytes from `src` to `dst`. 从 src 开始复制 n 个字节到 dst
 ///
 /// - `dst` and `src` must not overlap (use `my_memmove` for overlapping regions)
 /// - Returns `dst`
@@ -25,9 +25,12 @@
 /// `dst` and `src` must each point to at least `n` bytes of valid memory.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn my_memcpy(dst: *mut u8, src: *const u8, n: usize) -> *mut u8 {
-    // TODO: Implement memcpy
+    // Implement memcpy
     // Hint: read bytes from src one by one and write to dst
-    todo!()
+    for i in 0..n {
+        *dst.add(i) = *src.add(i);
+    }
+    dst
 }
 
 /// Set `n` bytes starting at `dst` to the value `c`.
@@ -38,8 +41,11 @@ pub unsafe extern "C" fn my_memcpy(dst: *mut u8, src: *const u8, n: usize) -> *m
 /// `dst` must point to at least `n` bytes of valid writable memory.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn my_memset(dst: *mut u8, c: u8, n: usize) -> *mut u8 {
-    // TODO: Implement memset
-    todo!()
+    // Implement memset
+    for i in 0..n {
+        *dst.add(i) = c;
+    }
+    dst
 }
 
 /// Copy `n` bytes from `src` to `dst`, correctly handling overlapping memory.
@@ -50,9 +56,22 @@ pub unsafe extern "C" fn my_memset(dst: *mut u8, c: u8, n: usize) -> *mut u8 {
 /// `dst` and `src` must each point to at least `n` bytes of valid memory.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn my_memmove(dst: *mut u8, src: *const u8, n: usize) -> *mut u8 {
-    // TODO: Implement memmove
+    // Implement memmove
     // Hint: when dst > src and regions overlap, copy backwards (from end to start)
-    todo!()
+    // 需要考虑到内存地址的重叠
+    // 判断内存地址是否有重叠
+    let dst_add = dst as usize;
+    let src_add = src as usize;
+    if dst_add > src_add  && dst_add < src_add + n {
+        for i in (0..n).rev() {
+            *dst.add(i) = *src.add(i);
+        }
+    }else {
+        for i in 0..n {
+            *dst.add(i) = *src.add(i);
+        }
+    }
+    dst
 }
 
 /// Return the length of a null-terminated byte string, excluding the trailing null.
