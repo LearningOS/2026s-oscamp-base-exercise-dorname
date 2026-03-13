@@ -80,8 +80,12 @@ pub unsafe extern "C" fn my_memmove(dst: *mut u8, src: *const u8, n: usize) -> *
 /// `s` must point to a valid null-terminated byte string.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn my_strlen(s: *const u8) -> usize {
-    // TODO: Implement strlen
-    todo!()
+    // Implement strlen
+    let mut i = 0;
+    while *s.add(i) != 0 {
+        i = i + 1;
+    }
+    i
 }
 
 /// Compare two null-terminated byte strings.
@@ -95,8 +99,52 @@ pub unsafe extern "C" fn my_strlen(s: *const u8) -> usize {
 /// `s1` and `s2` must each point to a valid null-terminated byte string.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn my_strcmp(s1: *const u8, s2: *const u8) -> i32 {
-    // TODO: Implement strcmp
-    todo!()
+    let len1 = my_strlen(s1);
+    let len2 = my_strlen(s2);
+    let mut i = 0;
+    // Implement strcmp
+    match len1.cmp(&len2) {
+        core::cmp::Ordering::Equal => {
+            while i < len1 {
+                if *s1.add(i) != *s2.add(i) {
+                    if *s1.add(i) > *s2.add(i) {
+                        return 1;
+                    }else { 
+                        return -1
+                    }
+                }
+                i = i+1;
+            }
+            0
+        },
+        core::cmp::Ordering::Greater => {
+            while i < len2 {
+                if *s1.add(i) != *s2.add(i) {
+                    if *s1.add(i) > *s2.add(i) {
+                        return 1;
+                    }else {
+                        return -1
+                    }
+                }
+                i = i+1;
+            }
+            1
+
+        },
+        core::cmp::Ordering::Less => {
+            while i < len1 {
+                if *s1.add(i) != *s2.add(i) {
+                    if *s1.add(i) > *s2.add(i) {
+                        return 1;
+                    }else {
+                        return -1
+                    }
+                }
+                i = i+1;
+            }
+            -1
+        }
+    }
 }
 
 // ============================================================
