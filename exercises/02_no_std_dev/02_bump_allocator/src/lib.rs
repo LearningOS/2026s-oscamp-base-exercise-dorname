@@ -30,6 +30,7 @@
 //! - `AtomicUsize` and `compare_exchange` (CAS loop)
 
 #![cfg_attr(not(test), no_std)]
+extern crate alloc;
 
 use core::alloc::{GlobalAlloc, Layout};
 use core::ptr::null_mut;
@@ -63,18 +64,32 @@ impl BumpAllocator {
 
 unsafe impl GlobalAlloc for BumpAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        // TODO: Implement bump allocation
+        // Implement bump allocation
         //
-        // Steps:
-        // 1. Load current next (use Ordering::SeqCst)
-        // 2. Align next up to layout.align()
-        //    Hint: align_up(addr, align) = (addr + align - 1) & !(align - 1)
-        // 3. Compute allocation end = aligned + layout.size()
-        // 4. If end > heap_end, return null_mut()
-        // 5. Atomically update next to end using compare_exchange
-        //    (if CAS fails, another thread raced — retry in a loop)
-        // 6. Return the aligned address as a pointer
-        todo!()
+        fn align_up(addr: usize, align: usize) -> usize {
+            (addr + align - 1) & !(align - 1)
+        }
+        loop {
+            // Steps:
+            // 1. Load current next (use Ordering::SeqCst)
+            let next = self.next.load(Ordering::SeqCst);
+            // 2. Align next up to layout.align()
+            //    Hint: align_up(addr, align) = (addr + align - 1) & !(align - 1)
+            let start = align_up(next, layout.align());
+            // 3. Compute allocation end = aligned + layout.size()
+            let end = start + layout.size();
+            // 4. If end > heap_end, return null_mut()
+            if end > self.heap_end {
+                return null_mut();
+            }
+            // 5. Atomically update next to end using compare_exchange
+            //    (if CAS fails, another thread raced — retry in a loop)
+            // 6. Return the aligned address as a pointer
+            if self.next.compare_exchange(next, end, Ordering::SeqCst,Ordering::SeqCst).is_ok() {
+                return start as *mut u8;
+            }
+        }
+
     }
 
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
@@ -87,6 +102,7 @@ unsafe impl GlobalAlloc for BumpAllocator {
 // ============================================================
 #[cfg(test)]
 mod tests {
+    use alloc::string::ToString;
     use super::*;
 
     const HEAP_SIZE: usize = 4096;
@@ -113,6 +129,7 @@ mod tests {
             let layout = Layout::from_size_align(1, align).unwrap();
             let ptr = unsafe { alloc.alloc(layout) };
             assert!(!ptr.is_null());
+            // 打印一下 ptr
             assert_eq!(
                 ptr as usize % align,
                 0,
