@@ -35,14 +35,16 @@
 //! - Memory alignment checks
 
 #![cfg_attr(not(test), no_std)]
+extern crate alloc;
 
 use core::alloc::{GlobalAlloc, Layout};
 use core::ptr::null_mut;
+use core::sync::atomic::Ordering;
 
 /// Free block header, stored at the beginning of each free memory block
 struct FreeBlock {
     size: usize,
-    next: *mut FreeBlock,
+    pub next: *mut FreeBlock,
 }
 
 pub struct FreeListAllocator {
@@ -108,30 +110,61 @@ unsafe impl GlobalAlloc for FreeListAllocator {
         let size = layout.size().max(core::mem::size_of::<FreeBlock>());
         let align = layout.align().max(core::mem::align_of::<FreeBlock>());
 
-        // TODO: Step 1 — traverse free_list, find a suitable block (first-fit)
+        // Step 1 — traverse free_list, find a suitable block (first-fit)
         //
         // Hints:
         // - Use prev_ptr and curr to traverse the list
         // - Check if curr address satisfies align, and (*curr).size >= size
         // - If found, remove it from the list (update prev's next or the free_list head)
         // - Return curr as *mut u8
-
-        // TODO: Step 2 — no suitable block in free_list, allocate from bump region
-        //
-        // Same logic as 02_bump_allocator's alloc
-        todo!()
+        let mut curr = self.free_list_head();
+        let mut prev: *mut FreeBlock = null_mut();
+        while !curr.is_null() {
+            // 校验当前地址是否能对齐预期布局
+            if curr as usize % align == 0
+                // 且当前块大小足够 
+                && (*curr).size >= size {
+                // 移除当前块
+                // 如果前置块为空则说明所取块为链头
+                if prev.is_null() {
+                    self.set_free_list_head((*curr).next);
+                } else {
+                    // 中间块则让前置块next指针指向当前块的后置
+                    (*prev).next = (*curr).next;
+                }
+                // 返回当前块
+                return curr as *mut u8;
+            }
+            // 没有合适块，前置
+            prev = curr;
+            curr = (*curr).next;
+        }
+        // 如果没找到合适的块，分配一个新的
+        let bump_next = self.bump_next.load(core::sync::atomic::Ordering::SeqCst);
+        if bump_next + size > self.heap_end {
+            return null_mut(); // 超出堆空间
+        }
+        if self.bump_next.compare_exchange(bump_next, bump_next + size, Ordering::SeqCst,Ordering::SeqCst).is_ok() {
+            bump_next as *mut u8
+        }else {
+            null_mut()
+        }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         let size = layout.size().max(core::mem::size_of::<FreeBlock>());
 
-        // TODO: Insert the freed block at the head of free_list
+        // Insert the freed block at the head of free_list
         //
         // Steps:
         // 1. Cast ptr to *mut FreeBlock
+        let mut block = ptr as *mut FreeBlock;
         // 2. Write FreeBlock { size, next: current list head }
+        (*block).size = size;
+        let curr_head = self.free_list_head();
+        (*block).next = curr_head;
         // 3. Update free_list head to ptr
-        todo!()
+        self.set_free_list_head(block);
     }
 }
 
@@ -140,6 +173,8 @@ unsafe impl GlobalAlloc for FreeListAllocator {
 // ============================================================
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
+    use alloc::vec::Vec;
     use super::*;
 
     const HEAP_SIZE: usize = 4096;
