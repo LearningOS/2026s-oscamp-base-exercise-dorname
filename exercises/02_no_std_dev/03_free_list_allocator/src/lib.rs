@@ -236,6 +236,7 @@ mod tests {
         let q1 = unsafe { alloc.alloc(layout) };
         let q2 = unsafe { alloc.alloc(layout) };
         assert!(!q1.is_null() && !q2.is_null());
+    
     }
 
     #[test]
