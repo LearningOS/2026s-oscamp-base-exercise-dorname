@@ -88,7 +88,7 @@ impl FdTable {
 
     /// Close an fd. Returns true on success, false if the fd doesn't exist or is already closed.
     pub fn close(&mut self, fd: usize) -> bool {
-        if self.files.len() <= 0 {
+        if self.files.len() <= 0 || self.files.len() <= fd {
             return false;
         }
         if let Some(_) = self.files[fd].as_ref() {
